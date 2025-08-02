@@ -27,7 +27,7 @@ public class BootStrapData implements CommandLineRunner {
         AppUser user = AppUser.builder()
                 .name("John Doe")
                 .email("john.doe@example.com")
-                .passwordHash("hashed-password")
+                .passwordHash("$2a$10$aNFIfXkyjs0WEo8LYp9DSuMQGKlm0PbAAu698Ldv9Sc7CVjaSHFCe")
                 .build();
 
         appUserRepository.save(user);

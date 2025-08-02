@@ -1,5 +1,6 @@
 package org.finsage.api.services;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.finsage.api.entities.AppUser;
 import org.finsage.api.entities.Expense;
@@ -66,6 +67,11 @@ public class ExpenseServiceJPA implements ExpenseService {
 
     @Override
     public Optional<ExpenseDTO> updateExpense(UUID userId, UUID expenseId, ExpenseDTO expense) {
+        AppUser appUser = appUserRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (expenseRepository.findByIdAndAppUser(expenseId, appUser).isEmpty()) {
+            return Optional.empty();
+        }
         AtomicReference<Optional<ExpenseDTO>> atomicReference = new AtomicReference<>(Optional.empty());
         expenseRepository.findById(expenseId).ifPresent(foundExpense -> {
             foundExpense.setCategory(expense.getCategory());
@@ -78,6 +84,7 @@ public class ExpenseServiceJPA implements ExpenseService {
 
 
     @Override
+    @Transactional
     public void deleteExpense(UUID userId, UUID expenseId) {
         AppUser appUser = appUserRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));

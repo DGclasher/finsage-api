@@ -1,5 +1,6 @@
 package org.finsage.api.services;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.finsage.api.entities.AppUser;
 import org.finsage.api.entities.Income;
@@ -70,10 +71,9 @@ public class IncomeServiceJPA implements IncomeService {
         AtomicReference<Optional<IncomeDTO>> atomicReference = new AtomicReference<>();
         incomeRepository.findById(incomeId).ifPresentOrElse(existingIncome -> {
             if (existingIncome.getAppUser().getId().equals(userId)) {
-                Income updatedIncome = incomeMapper.incomeDtoToIncome(income);
-                updatedIncome.setId(existingIncome.getId());
-                updatedIncome.setAppUser(existingIncome.getAppUser());
-                Income saved = incomeRepository.save(updatedIncome);
+                existingIncome.setIncomeYear(income.getIncomeYear());
+                existingIncome.setAnnualPostTaxIncome(income.getAnnualPostTaxIncome());
+                Income saved = incomeRepository.save(existingIncome);
                 atomicReference.set(Optional.of(incomeMapper.incomeToIncomeDto(saved)));
             } else {
                 atomicReference.set(Optional.empty());
@@ -83,6 +83,7 @@ public class IncomeServiceJPA implements IncomeService {
     }
 
     @Override
+    @Transactional
     public void deleteIncome(UUID userId, UUID incomeId) {
         AppUser appUser = appUserRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));

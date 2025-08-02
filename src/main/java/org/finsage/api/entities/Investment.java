@@ -40,6 +40,7 @@ public class Investment {
 
     private Double interestRate;
     private Double totalAmountInvested;
+    private Double currentValue;
 
     @ManyToOne(fetch = FetchType.LAZY)
     private AppUser appUser;

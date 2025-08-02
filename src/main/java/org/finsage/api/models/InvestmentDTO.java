@@ -27,4 +27,5 @@ public class InvestmentDTO {
 
     private Double interestRate;
     private Double totalAmountInvested;
+    private Double currentValue;
 }

@@ -1,5 +1,6 @@
 package org.finsage.api.services;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.finsage.api.entities.AppUser;
 import org.finsage.api.entities.Investment;
@@ -37,10 +38,20 @@ public class InvestmentServiceJPA implements InvestmentService {
     public InvestmentDTO addInvestment(UUID userId, InvestmentDTO investment) {
         AppUser user = appUserRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
         Investment entity = investmentMapper.investmentDtoToInvestment(investment);
         entity.setAppUser(user);
-
+        if (entity.getType() == InvestmentType.STOCK) {
+            Double currentPrice = stockValuationClient.fetchCurrentPrice(entity.getSymbol());
+            if (currentPrice == null) {
+                throw new RuntimeException("Unable to fetch stock price for symbol: " + entity.getSymbol());
+            }
+            entity.setBuyPrice(currentPrice);
+            entity.setCurrentPrice(currentPrice);
+            entity.setCurrentValue(currentPrice * entity.getUnits());
+            entity.setTotalAmountInvested(currentPrice * entity.getUnits());
+        } else {
+            entity.setCurrentPrice(0.0);
+        }
         Investment saved = investmentRepository.save(entity);
         return investmentMapper.investmentToInvestmentDto(saved);
     }
@@ -60,36 +71,68 @@ public class InvestmentServiceJPA implements InvestmentService {
         return PageRequest.of(pageNumber, pageSize);
     }
 
+    private void updateStockInvestment(Investment investment) {
+        if (investment.getType() == InvestmentType.STOCK) {
+            Double currentPrice = stockValuationClient.fetchCurrentPrice(investment.getSymbol());
+            if (currentPrice != null) {
+                investment.setCurrentPrice(currentPrice);
+                investment.setCurrentValue(currentPrice * investment.getUnits());
+            } else {
+                throw new RuntimeException("Failed to fetch current price for stock: " + investment.getSymbol());
+            }
+        }
+    }
+
     @Override
     public Page<InvestmentDTO> getAllInvestments(UUID userId, Integer pageNumber, Integer pageSize) {
         Page<Investment> investmentPage;
         PageRequest pageRequest = buildPageRequest(pageNumber, pageSize);
         AppUser appUser = appUserRepository.findById(userId).orElse(null);
         investmentPage = investmentRepository.findInvestmentsByAppUser(appUser, pageRequest);
+        for( Investment investment : investmentPage) {
+            updateStockInvestment(investment);
+        }
         return investmentPage.map(investmentMapper::investmentToInvestmentDto);
     }
 
     @Override
     public Optional<InvestmentDTO> updateInvestment(UUID userId, UUID investmentId, InvestmentDTO investment) {
         AtomicReference<Optional<InvestmentDTO>> atomicReference = new AtomicReference<>();
-        investmentRepository.findById(investmentId).ifPresentOrElse(foundInvestment -> {
-            foundInvestment.setTotalAmountInvested(investment.getTotalAmountInvested());
-            foundInvestment.setBuyPrice(investment.getBuyPrice());
-            foundInvestment.setType(investment.getType());
-            foundInvestment.setCurrentPrice(investment.getCurrentPrice());
-            foundInvestment.setStartDate(investment.getStartDate());
-            foundInvestment.setSymbol(investment.getSymbol());
-            foundInvestment.setInterestRate(investment.getInterestRate());
-            foundInvestment.setUnits(investment.getUnits());
-            foundInvestment.setEndDate(investment.getEndDate());
 
-            Investment updatedInvestment = investmentRepository.save(foundInvestment);
-            atomicReference.set(Optional.of(investmentMapper.investmentToInvestmentDto(updatedInvestment)));
+        investmentRepository.findById(investmentId).ifPresentOrElse(foundInvestment -> {
+            foundInvestment.setType(investment.getType());
+            foundInvestment.setStartDate(investment.getStartDate());
+            foundInvestment.setEndDate(investment.getEndDate());
+            foundInvestment.setSymbol(investment.getSymbol());
+            Double prevUnits = foundInvestment.getUnits();
+            foundInvestment.setUnits(investment.getUnits());
+            foundInvestment.setInterestRate(investment.getInterestRate());
+
+            if (investment.getType() == InvestmentType.STOCK) {
+                Double currentPrice = stockValuationClient.fetchCurrentPrice(investment.getSymbol());
+                if (currentPrice == null) {
+                    throw new RuntimeException("Unable to fetch stock price for symbol: " + investment.getSymbol());
+                }
+                foundInvestment.setBuyPrice(currentPrice);
+                foundInvestment.setCurrentPrice(currentPrice);
+                foundInvestment.setTotalAmountInvested(investment.getTotalAmountInvested() + ((investment.getUnits()- prevUnits) * currentPrice));
+                foundInvestment.setCurrentValue(currentPrice * investment.getUnits());
+            } else {
+                foundInvestment.setBuyPrice(investment.getBuyPrice());
+                foundInvestment.setCurrentPrice(investment.getCurrentPrice());
+                foundInvestment.setTotalAmountInvested(investment.getTotalAmountInvested());
+            }
+
+            Investment updated = investmentRepository.save(foundInvestment);
+            atomicReference.set(Optional.of(investmentMapper.investmentToInvestmentDto(updated)));
         }, () -> atomicReference.set(Optional.empty()));
+
         return atomicReference.get();
     }
 
+
     @Override
+    @Transactional
     public void deleteInvestment(UUID userId, UUID investmentId) {
         AppUser appUser = appUserRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -107,14 +150,7 @@ public class InvestmentServiceJPA implements InvestmentService {
 
         List<Investment> investments = investmentRepository.findByAppUserAndType(user, type);
         for(Investment investment : investments) {
-            if(investment.getType() == InvestmentType.STOCK) {
-                Double currentPrice = stockValuationClient.fetchCurrentPrice(investment.getSymbol());
-                if (currentPrice != null) {
-                    investment.setCurrentPrice(currentPrice * investment.getUnits());
-                } else {
-                    throw new RuntimeException("Failed to fetch current price for stock: " + investment.getSymbol());
-                }
-            }
+            updateStockInvestment(investment);
         }
         return investments.stream()
                 .map(investmentMapper::investmentToInvestmentDto)
@@ -133,15 +169,35 @@ public class InvestmentServiceJPA implements InvestmentService {
         double totalCurrentValue = 0;
 
         for (Investment inv : investments) {
-            if (inv.getType() == InvestmentType.FD || inv.getType() == InvestmentType.BOND) {
-                totalInvested += inv.getTotalAmountInvested();
-                totalCurrentValue += inv.getTotalAmountInvested() +
-                        (inv.getTotalAmountInvested() * inv.getInterestRate() / 100);
-            } else {
-                double units = inv.getUnits();
-                totalInvested += inv.getBuyPrice() * units;
-                totalCurrentValue += inv.getCurrentPrice() * units;
+            double investedAmount = 0;
+            double currentValue = 0;
+            double units = 0.0;
+             if(inv.getType() != InvestmentType.FD) {
+                units = inv.getUnits() != null ? inv.getUnits() : 0.0;
+             }
+
+            switch (inv.getType()) {
+                case FD:
+                case BOND:
+                    investedAmount = inv.getTotalAmountInvested();
+                    currentValue = investedAmount + (investedAmount * inv.getInterestRate() / 100);
+                    break;
+
+                case STOCK:
+                case ETF:
+                    investedAmount = inv.getBuyPrice() * units;
+                    Double livePrice = stockValuationClient.fetchCurrentPrice(inv.getSymbol());
+                    currentValue = (livePrice != null ? livePrice : 0.0) * units;
+                    break;
+
+                case MUTUAL_FUND:
+                    investedAmount = inv.getBuyPrice() * units;
+                    currentValue = inv.getCurrentPrice() * units;
+                    break;
             }
+
+            totalInvested += investedAmount;
+            totalCurrentValue += currentValue;
         }
 
         double gainLoss = totalCurrentValue - totalInvested;
@@ -154,4 +210,5 @@ public class InvestmentServiceJPA implements InvestmentService {
                 .gainLossPercentage(gainLossPercentage)
                 .build();
     }
+
 }
