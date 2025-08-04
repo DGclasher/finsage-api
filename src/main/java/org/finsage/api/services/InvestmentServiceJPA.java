@@ -10,6 +10,7 @@ import org.finsage.api.models.InvestmentDTO;
 import org.finsage.api.models.InvestmentSummaryDTO;
 import org.finsage.api.repositories.AppUserRepository;
 import org.finsage.api.repositories.InvestmentRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -160,6 +161,7 @@ public class InvestmentServiceJPA implements InvestmentService {
     }
 
     @Override
+    @Cacheable(value = "investmentSummary", key = "#userId")
     public InvestmentSummaryDTO getInvestmentSummary(UUID userId) {
         AppUser user = appUserRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.cdimascio.dotenv.Dotenv;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -14,6 +15,7 @@ import java.net.http.HttpResponse;
 import java.util.concurrent.TimeUnit;
 
 @Service
+@Cacheable(value = "stockValuationCache", key = "#symbol")
 public class StockValuationClient {
 
     private final Dotenv dotenv = Dotenv.load();
@@ -21,16 +23,10 @@ public class StockValuationClient {
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
     private final String BASE_URL = dotenv.get("STOCK_API_BASE_URL", "https://localhost:8000");
-    private final int cacheExpiryMinutes = Integer.parseInt(dotenv.get("CACHE_EXPIRATION_MINUTES", "10"));
-
-    private final Cache<String, Double> priceCache = Caffeine.newBuilder().expireAfterWrite(cacheExpiryMinutes, TimeUnit.MINUTES).maximumSize(500).build();
 
     public Double fetchCurrentPrice(String symbol) {
         String url = BASE_URL + "/valuations/get-valuation-verdict?symbol=" + symbol;
-        Double cachedPrice = priceCache.getIfPresent(symbol);
-        if(cachedPrice != null) {
-            return cachedPrice;
-        }
+
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
@@ -44,12 +40,10 @@ public class StockValuationClient {
                 JsonNode root = objectMapper.readTree(response.body());
 
                 if (root.has("current_price")) {
-                    Double price = root.get("current_price").asDouble();
-                    priceCache.put(symbol, price);
-                    return price;
+                    return root.get("current_price").asDouble();
                 }
             }
-        } catch (Exception e) {
+        } catch (Exception ignored) {
 
         }
         return null;
