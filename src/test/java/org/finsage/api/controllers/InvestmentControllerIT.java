@@ -9,6 +9,7 @@ import org.finsage.api.models.InvestmentDTO;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.finsage.api.entities.InvestmentType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.finsage.api.repositories.AppUserRepository;
 import org.springframework.test.web.servlet.MvcResult;
@@ -27,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
+@ActiveProfiles("test")
 @AutoConfigureMockMvc
 class InvestmentControllerIT {
 

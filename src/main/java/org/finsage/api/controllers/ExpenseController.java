@@ -22,7 +22,7 @@ public class ExpenseController {
     private final JwtUtil jwtUtil;
 
     @PostMapping
-    public ResponseEntity<ExpenseDTO> createExpense(@RequestBody @Valid ExpenseDTO expense) throws Exception {
+    public ResponseEntity<ExpenseDTO> createExpense(@RequestBody ExpenseDTO expense) throws Exception {
         UUID userId = jwtUtil.getUserIdFromToken(SecurityContextHolder.getContext().getAuthentication());
         ExpenseDTO created = expenseService.createExpense(userId, expense);
         return new ResponseEntity<>(created, HttpStatus.CREATED);

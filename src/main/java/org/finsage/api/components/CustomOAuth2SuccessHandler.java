@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.finsage.api.entities.AppUser;
+import org.finsage.api.entities.AuthProvider;
 import org.finsage.api.repositories.AppUserRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -27,18 +28,19 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
                                         Authentication authentication) throws IOException, ServletException {
         OAuth2User oauthUser = (OAuth2User) authentication.getPrincipal();
         String email = oauthUser.getAttribute("email");
+        String name = oauthUser.getAttribute("name");
 
         AppUser user = userRepository.findByEmail(email)
                 .orElseGet(() -> {
                     AppUser newUser = new AppUser();
                     newUser.setEmail(email);
+                    newUser.setName(name);
+                    newUser.setProvider(AuthProvider.GOOGLE);
+                    newUser.setPasswordHash(null);
                     return userRepository.save(newUser);
                 });
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getId().toString());
-
-
-        // Redirect to login.html with token in query param
-        response.sendRedirect("http://localhost:8081/login.html?token=" + token);
+        response.sendRedirect("http://localhost:3000/login?token=" + token);
     }
 }

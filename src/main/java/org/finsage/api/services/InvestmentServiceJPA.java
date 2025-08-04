@@ -15,6 +15,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -159,7 +161,6 @@ public class InvestmentServiceJPA implements InvestmentService {
 
     @Override
     public InvestmentSummaryDTO getInvestmentSummary(UUID userId) {
-
         AppUser user = appUserRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -172,9 +173,9 @@ public class InvestmentServiceJPA implements InvestmentService {
             double investedAmount = 0;
             double currentValue = 0;
             double units = 0.0;
-             if(inv.getType() != InvestmentType.FD) {
+            if (inv.getType() != InvestmentType.FD) {
                 units = inv.getUnits() != null ? inv.getUnits() : 0.0;
-             }
+            }
 
             switch (inv.getType()) {
                 case FD:
@@ -184,15 +185,17 @@ public class InvestmentServiceJPA implements InvestmentService {
                     break;
 
                 case STOCK:
-                case ETF:
                     investedAmount = inv.getBuyPrice() * units;
                     Double livePrice = stockValuationClient.fetchCurrentPrice(inv.getSymbol());
                     currentValue = (livePrice != null ? livePrice : 0.0) * units;
                     break;
 
                 case MUTUAL_FUND:
-                    investedAmount = inv.getBuyPrice() * units;
-                    currentValue = inv.getCurrentPrice() * units;
+                case ETF:
+                    investedAmount = inv.getTotalAmountInvested(); // or buyPrice * units
+                    long daysHeld = ChronoUnit.DAYS.between(inv.getStartDate(), LocalDate.now());
+                    double interestEarned = investedAmount * (inv.getInterestRate() / 100) * (daysHeld / 365.0);
+                    currentValue = investedAmount + interestEarned;
                     break;
             }
 
@@ -210,5 +213,4 @@ public class InvestmentServiceJPA implements InvestmentService {
                 .gainLossPercentage(gainLossPercentage)
                 .build();
     }
-
 }

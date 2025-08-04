@@ -52,7 +52,7 @@ public class StockValuationClient {
         } catch (Exception e) {
 
         }
-        throw new RuntimeException("Failed to fetch current price for stock: " + symbol);
+        return null;
     }
 }
 

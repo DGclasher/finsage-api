@@ -3,9 +3,11 @@ package org.finsage.api.controllers;
 import lombok.RequiredArgsConstructor;
 import org.finsage.api.components.JwtUtil;
 import org.finsage.api.entities.AppUser;
+import org.finsage.api.entities.AuthProvider;
 import org.finsage.api.repositories.AppUserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -42,6 +44,9 @@ public class AuthController {
         String email = ((UserDetails) auth.getPrincipal()).getUsername();
         AppUser user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        if (user.getProvider() == AuthProvider.GOOGLE) {
+            throw new BadCredentialsException("Please login using Google");
+        }
         String token = jwtUtil.generateToken(user.getEmail(), user.getId().toString());
 
         return ResponseEntity.ok(Map.of("token", token));
