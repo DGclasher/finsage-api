@@ -11,6 +11,14 @@ jobs:
   test:
     name: Integration Tests
     runs-on: ubuntu-latest
+
+    services:
+      stock:
+        image: devfinwiz24/fin-maestro-kin:latest
+        ports:
+          - 8000:8000
+
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,8 +29,10 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Grant execute permission to mvnw
-        run: chmod +x mvnw
+      - name: Grant execute permission to mvnw + Copy env
+        run: |
+            chmod +x ./mvnw
+            cp .env.example .env
 
       - name: Run integration tests
         run: ./mvnw verify
