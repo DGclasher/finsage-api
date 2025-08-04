@@ -1,5 +1,6 @@
 package org.finsage.api.config;
 
+import io.github.cdimascio.dotenv.Dotenv;
 import org.finsage.api.components.CustomAccessDeniedHandler;
 import org.finsage.api.components.CustomOAuth2SuccessHandler;
 import org.finsage.api.components.JwtAuthenticationEntrypoint;
@@ -12,6 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -35,11 +37,14 @@ public class SecurityConfig {
     @Autowired
     private CustomOAuth2SuccessHandler customOAuth2SuccessHandler;
 
+    Dotenv dotenv = Dotenv.load();
+    private final String CLIENT_URL = dotenv.get("CLIENT_URL", "http://localhost:3000");
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationEntrypoint jwtAuthenticationEntrypoint, CustomAccessDeniedHandler customAccessDeniedHandler) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/login", "/oauth2/**", "/token", "/register", "/js/**", "/css/**").permitAll()
                         .anyRequest().authenticated()
@@ -60,10 +65,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(java.util.List.of("http://localhost:8081", "http://localhost:8080", "http://localhost:3000"));
+//        configuration.setAllowedOriginPatterns(java.util.List.of("http://localhost:8081", "http://localhost:8080", CLIENT_URL, "http://localhost:3000"));
+        configuration.addAllowedOriginPattern("*");
         configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(java.util.List.of("*"));
-        configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

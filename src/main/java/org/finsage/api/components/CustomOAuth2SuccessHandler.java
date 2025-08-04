@@ -1,6 +1,7 @@
 package org.finsage.api.components;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.cdimascio.dotenv.Dotenv;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -23,6 +24,9 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    Dotenv dotenv = Dotenv.load();
+    private final String CLIENT_URL = dotenv.get("CLIENT_URL", "http://localhost:3000");
+
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
@@ -41,6 +45,6 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
                 });
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getId().toString());
-        response.sendRedirect("http://localhost:3000/login?token=" + token);
+        response.sendRedirect(CLIENT_URL + "/login?token=" + token);
     }
 }

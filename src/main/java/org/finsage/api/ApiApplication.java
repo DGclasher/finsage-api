@@ -21,6 +21,8 @@ public class ApiApplication {
 		System.setProperty("POSTGRES_PASSWORD", dotenv.get("POSTGRES_PASSWORD"));
 		System.setProperty("POSTGRES_HOST", dotenv.get("POSTGRES_HOST"));
 		System.setProperty("POSTGRES_PORT", dotenv.get("POSTGRES_PORT"));
+		System.setProperty("REDIS_HOST", dotenv.get("REDIS_HOST"));
+		System.setProperty("REDIS_PORT", dotenv.get("REDIS_PORT"));
 
 		SpringApplication.run(ApiApplication.class, args);
 	}
