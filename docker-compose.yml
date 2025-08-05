@@ -20,14 +20,26 @@ services:
       - .env
     networks:
       - finsage-network
+    volumes:
+      - finsage-db-data:/var/lib/postgresql/data
+
+  stock-api:
+    image: devfinwiz24/fin-maestro-kin:latest
+    container_name: finsage-stock-api
+    restart: unless-stopped
+    expose:
+      - 8000
+    networks:
+      - finsage-network
 
   finsage-api:
-    image: test/finsage-api:latest
+    image: dgclasher/finsage-api:latest
     container_name: finsage-api
     restart: unless-stopped
     depends_on:
       - redis
       - db
+      - stock-api
     expose:
       - 8080
     env_file:
@@ -41,3 +53,6 @@ services:
 
 networks:
   finsage-network:
+
+volumes:
+  finsage-db-data:
