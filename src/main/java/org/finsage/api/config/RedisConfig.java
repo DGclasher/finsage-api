@@ -3,6 +3,7 @@ package org.finsage.api.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -16,6 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Configuration
+@Profile("!test")
 public class RedisConfig {
 
         @Value("${CACHE_EXPIRATION_MINUTES:10}")
@@ -26,11 +28,9 @@ public class RedisConfig {
                 RedisTemplate<String, Object> template = new RedisTemplate<>();
                 template.setConnectionFactory(connectionFactory);
 
-                // Use String serializer for keys
                 template.setKeySerializer(new StringRedisSerializer());
                 template.setHashKeySerializer(new StringRedisSerializer());
 
-                // Use JSON serializer for values
                 template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
                 template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
 
@@ -54,7 +54,7 @@ public class RedisConfig {
                 // Define custom TTL for different caches
                 Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
                 cacheConfigurations.put("stockPrices", defaultConfig.entryTtl(Duration.ofMinutes(stockPriceTtl)));
-                cacheConfigurations.put("stockValuationCache", defaultConfig.entryTtl(Duration.ofMinutes(15)));
+                cacheConfigurations.put("stockValuationCache", defaultConfig.entryTtl(Duration.ofMinutes(10)));
                 cacheConfigurations.put("investmentSummary", defaultConfig.entryTtl(Duration.ofMinutes(5)));
 
                 return RedisCacheManager.builder(connectionFactory)

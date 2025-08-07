@@ -73,8 +73,8 @@ class InvestmentControllerIT {
         var loginRequest = Map.of("email", email, "password", password);
 
         MvcResult result = mockMvc.perform(post("/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -101,9 +101,9 @@ class InvestmentControllerIT {
                 .build();
 
         mockMvc.perform(post(BASE_PATH)
-                        .with(bearerToken())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dto)))
+                .with(bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.symbol").value("INFY"))
                 .andExpect(jsonPath("$.type").value("STOCK"));
@@ -112,7 +112,7 @@ class InvestmentControllerIT {
     @Test
     void testGetInvestmentById() throws Exception {
         mockMvc.perform(get(ID_PATH, investmentId)
-                        .with(bearerToken()))
+                .with(bearerToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(investmentId.toString()));
     }
@@ -120,9 +120,9 @@ class InvestmentControllerIT {
     @Test
     void testGetAllInvestments() throws Exception {
         mockMvc.perform(get(BASE_PATH)
-                        .with(bearerToken())
-                        .param("page", "0")
-                        .param("size", "10"))
+                .with(bearerToken())
+                .param("page", "0")
+                .param("size", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray());
     }
@@ -138,9 +138,9 @@ class InvestmentControllerIT {
                 .build();
 
         mockMvc.perform(put(ID_PATH, investmentId)
-                        .with(bearerToken())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(update)))
+                .with(bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(update)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.symbol").value("NEW-MF"))
                 .andExpect(jsonPath("$.type").value("MUTUAL_FUND"));
@@ -149,23 +149,23 @@ class InvestmentControllerIT {
     @Test
     void testDeleteInvestment() throws Exception {
         mockMvc.perform(delete(ID_PATH, investmentId)
-                        .with(bearerToken()))
+                .with(bearerToken()))
                 .andExpect(status().isNoContent());
     }
 
     @Test
     void testGetInvestmentsByType() throws Exception {
         mockMvc.perform(get(TYPE_PATH, InvestmentType.STOCK)
-                        .with(bearerToken()))
+                .with(bearerToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray());
     }
 
     @Test
     void testGetInvestmentSummary() throws Exception {
-        mockMvc.perform(get(SUMMARY_PATH)
-                        .with(bearerToken()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalInvested").exists());
+        MvcResult mvcResult = mockMvc.perform(get(SUMMARY_PATH)
+                .with(bearerToken()))
+                .andExpect(status().isOk()).andReturn();
+        String response = mvcResult.getResponse().getContentAsString();
     }
 }

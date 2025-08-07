@@ -16,6 +16,10 @@ jobs:
         image: devfinwiz24/fin-maestro-kin:latest
         ports:
           - 8000:8000
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

@@ -79,7 +79,7 @@ public class InvestmentServiceJPA implements InvestmentService {
         return PageRequest.of(pageNumber, pageSize);
     }
 
-    private void updateStockInvestment(Investment investment) {
+    private void updateInvestmentValues(Investment investment) {
         if (investment.getType() == InvestmentType.STOCK) {
             Double currentPrice = stockValuationClient.fetchCurrentPrice(investment.getSymbol());
             if (currentPrice != null) {
@@ -88,7 +88,39 @@ public class InvestmentServiceJPA implements InvestmentService {
             } else {
                 throw new RuntimeException("Failed to fetch current price for stock: " + investment.getSymbol());
             }
-        } 
+        } else if (investment.getType() == InvestmentType.MUTUAL_FUND) {
+            Double totalInvested = investment.getTotalAmountInvested();
+            Double interestRate = investment.getInterestRate() != null ? investment.getInterestRate() : 0.0;
+
+            if (investment.getStartDate() != null) {
+                long daysHeld = ChronoUnit.DAYS.between(investment.getStartDate(), LocalDate.now());
+                double interestEarned = totalInvested * (interestRate / 100) * (daysHeld / 365.0);
+                double currentValue = totalInvested + interestEarned;
+
+                investment.setCurrentValue(currentValue);
+                investment.setCurrentPrice(currentValue / investment.getUnits());
+            } else {
+                investment.setCurrentValue(totalInvested);
+                investment.setCurrentPrice(totalInvested / investment.getUnits());
+            }
+        } else if (investment.getType() == InvestmentType.FD) {
+            Double totalInvested = investment.getTotalAmountInvested() != null ? investment.getTotalAmountInvested()
+                    : 0.0;
+            Double interestRate = investment.getInterestRate() != null ? investment.getInterestRate() : 0.0;
+
+            if (investment.getStartDate() != null) {
+                long daysHeld = ChronoUnit.DAYS.between(investment.getStartDate(), LocalDate.now());
+                double timeInYears = daysHeld / 365.0;
+                double simpleInterest = totalInvested * interestRate * timeInYears / 100;
+                double currentValue = totalInvested + simpleInterest;
+
+                investment.setCurrentValue(currentValue);
+                investment.setCurrentPrice(currentValue);
+            } else {
+                investment.setCurrentValue(totalInvested);
+                investment.setCurrentPrice(totalInvested);
+            }
+        }
     }
 
     @Override
@@ -98,7 +130,7 @@ public class InvestmentServiceJPA implements InvestmentService {
         AppUser appUser = appUserRepository.findById(userId).orElse(null);
         investmentPage = investmentRepository.findInvestmentsByAppUser(appUser, pageRequest);
         for (Investment investment : investmentPage) {
-            updateStockInvestment(investment);
+            updateInvestmentValues(investment);
         }
         return investmentPage.map(investmentMapper::investmentToInvestmentDto);
     }
@@ -158,7 +190,7 @@ public class InvestmentServiceJPA implements InvestmentService {
 
         List<Investment> investments = investmentRepository.findByAppUserAndType(user, type);
         for (Investment investment : investments) {
-            updateStockInvestment(investment);
+            updateInvestmentValues(investment);
         }
         return investments.stream()
                 .map(investmentMapper::investmentToInvestmentDto)
@@ -187,22 +219,29 @@ public class InvestmentServiceJPA implements InvestmentService {
             switch (inv.getType()) {
                 case FD:
                 case BOND:
-                    investedAmount = inv.getTotalAmountInvested();
-                    currentValue = investedAmount + (investedAmount * inv.getInterestRate() / 100);
+                    investedAmount = inv.getTotalAmountInvested() != null ? inv.getTotalAmountInvested() : 0.0;
+                    double interestRate = inv.getInterestRate() != null ? inv.getInterestRate() : 0.0;
+                    currentValue = investedAmount + (investedAmount * interestRate / 100);
                     break;
 
                 case STOCK:
-                    investedAmount = inv.getBuyPrice() * units;
+                    double buyPrice = inv.getBuyPrice() != null ? inv.getBuyPrice() : 0.0;
+                    investedAmount = buyPrice * units;
                     Double livePrice = stockValuationClient.fetchCurrentPrice(inv.getSymbol());
                     currentValue = (livePrice != null ? livePrice : 0.0) * units;
                     break;
 
                 case MUTUAL_FUND:
                 case ETF:
-                    investedAmount = inv.getTotalAmountInvested(); // or buyPrice * units
-                    long daysHeld = ChronoUnit.DAYS.between(inv.getStartDate(), LocalDate.now());
-                    double interestEarned = investedAmount * (inv.getInterestRate() / 100) * (daysHeld / 365.0);
-                    currentValue = investedAmount + interestEarned;
+                    investedAmount = inv.getTotalAmountInvested() != null ? inv.getTotalAmountInvested() : 0.0;
+                    if (inv.getStartDate() != null) {
+                        long daysHeld = ChronoUnit.DAYS.between(inv.getStartDate(), LocalDate.now());
+                        double interestRateMF = inv.getInterestRate() != null ? inv.getInterestRate() : 0.0;
+                        double interestEarned = investedAmount * (interestRateMF / 100) * (daysHeld / 365.0);
+                        currentValue = investedAmount + interestEarned;
+                    } else {
+                        currentValue = investedAmount;
+                    }
                     break;
             }
 
