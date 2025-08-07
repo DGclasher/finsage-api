@@ -1,6 +1,9 @@
 package org.finsage.api;
 
 import io.github.cdimascio.dotenv.Dotenv;
+import io.github.cdimascio.dotenv.DotenvException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cache.annotation.EnableCaching;
@@ -9,22 +12,47 @@ import org.springframework.cache.annotation.EnableCaching;
 @SpringBootApplication
 public class ApiApplication {
 
+	private static final Logger logger = LoggerFactory.getLogger(ApiApplication.class);
+
 	public static void main(String[] args) {
-		Dotenv dotenv = Dotenv.load();
-		System.setProperty("GOOGLE_CLIENT_ID", dotenv.get("GOOGLE_CLIENT_ID"));
-		System.setProperty("GOOGLE_CLIENT_SECRET", dotenv.get("GOOGLE_CLIENT_SECRET"));
-		System.setProperty("GOOGLE_REDIRECT_URI", dotenv.get("GOOGLE_REDIRECT_URI"));
-		System.setProperty("JWT_SECRET", dotenv.get("JWT_SECRET"));
+		try {
+			loadEnvironmentVariables();
+			SpringApplication.run(ApiApplication.class, args);
+		} catch (Exception e) {
+			logger.error("Failed to start application: {}", e.getMessage(), e);
+			System.exit(1);
+		}
+	}
 
-		System.setProperty("POSTGRES_DB", dotenv.get("POSTGRES_DB"));
-		System.setProperty("POSTGRES_USER", dotenv.get("POSTGRES_USER"));
-		System.setProperty("POSTGRES_PASSWORD", dotenv.get("POSTGRES_PASSWORD"));
-		System.setProperty("POSTGRES_HOST", dotenv.get("POSTGRES_HOST"));
-		System.setProperty("POSTGRES_PORT", dotenv.get("POSTGRES_PORT"));
-		System.setProperty("REDIS_HOST", dotenv.get("REDIS_HOST"));
-		System.setProperty("REDIS_PORT", dotenv.get("REDIS_PORT"));
+	private static void loadEnvironmentVariables() {
+		try {
+			Dotenv dotenv = Dotenv.configure()
+					.ignoreIfMissing()
+					.load();
 
-		SpringApplication.run(ApiApplication.class, args);
+			// Required environment variables
+			String[] requiredVars = {
+					"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI",
+					"JWT_SECRET", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD",
+					"POSTGRES_HOST", "POSTGRES_PORT", "REDIS_HOST", "REDIS_PORT"
+			};
+
+			for (String var : requiredVars) {
+				String value = dotenv.get(var);
+				if (value == null || value.trim().isEmpty()) {
+					logger.warn("Environment variable {} is not set or empty, using default if available", var);
+				}
+				System.setProperty(var, value != null ? value : "");
+			}
+
+			logger.info("Environment variables loaded successfully");
+
+		} catch (DotenvException e) {
+			logger.warn("Could not load .env file: {}. Using system environment variables.", e.getMessage());
+		} catch (Exception e) {
+			logger.error("Error loading environment variables: {}", e.getMessage(), e);
+			throw new RuntimeException("Failed to load environment variables", e);
+		}
 	}
 
 }

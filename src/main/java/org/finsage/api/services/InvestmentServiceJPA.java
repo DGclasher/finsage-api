@@ -52,6 +52,10 @@ public class InvestmentServiceJPA implements InvestmentService {
             entity.setCurrentPrice(currentPrice);
             entity.setCurrentValue(currentPrice * entity.getUnits());
             entity.setTotalAmountInvested(currentPrice * entity.getUnits());
+        } else if (entity.getType() == InvestmentType.MUTUAL_FUND) {
+            entity.setCurrentPrice(investment.getBuyPrice());
+            entity.setCurrentValue(investment.getBuyPrice() * entity.getUnits());
+            entity.setTotalAmountInvested(investment.getBuyPrice() * entity.getUnits());
         } else {
             entity.setCurrentPrice(0.0);
         }
@@ -61,7 +65,8 @@ public class InvestmentServiceJPA implements InvestmentService {
 
     @Override
     public Optional<InvestmentDTO> getInvestmentById(UUID userId, UUID investmentId) {
-        return Optional.ofNullable(investmentMapper.investmentToInvestmentDto(investmentRepository.findById(investmentId).orElse(null)));
+        return Optional.ofNullable(
+                investmentMapper.investmentToInvestmentDto(investmentRepository.findById(investmentId).orElse(null)));
     }
 
     public PageRequest buildPageRequest(Integer pageNumber, Integer pageSize) {
@@ -83,7 +88,7 @@ public class InvestmentServiceJPA implements InvestmentService {
             } else {
                 throw new RuntimeException("Failed to fetch current price for stock: " + investment.getSymbol());
             }
-        }
+        } 
     }
 
     @Override
@@ -92,7 +97,7 @@ public class InvestmentServiceJPA implements InvestmentService {
         PageRequest pageRequest = buildPageRequest(pageNumber, pageSize);
         AppUser appUser = appUserRepository.findById(userId).orElse(null);
         investmentPage = investmentRepository.findInvestmentsByAppUser(appUser, pageRequest);
-        for( Investment investment : investmentPage) {
+        for (Investment investment : investmentPage) {
             updateStockInvestment(investment);
         }
         return investmentPage.map(investmentMapper::investmentToInvestmentDto);
@@ -118,7 +123,8 @@ public class InvestmentServiceJPA implements InvestmentService {
                 }
                 foundInvestment.setBuyPrice(currentPrice);
                 foundInvestment.setCurrentPrice(currentPrice);
-                foundInvestment.setTotalAmountInvested(investment.getTotalAmountInvested() + ((investment.getUnits()- prevUnits) * currentPrice));
+                foundInvestment.setTotalAmountInvested(
+                        investment.getTotalAmountInvested() + ((investment.getUnits() - prevUnits) * currentPrice));
                 foundInvestment.setCurrentValue(currentPrice * investment.getUnits());
             } else {
                 foundInvestment.setBuyPrice(investment.getBuyPrice());
@@ -132,7 +138,6 @@ public class InvestmentServiceJPA implements InvestmentService {
 
         return atomicReference.get();
     }
-
 
     @Override
     @Transactional
@@ -152,7 +157,7 @@ public class InvestmentServiceJPA implements InvestmentService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         List<Investment> investments = investmentRepository.findByAppUserAndType(user, type);
-        for(Investment investment : investments) {
+        for (Investment investment : investments) {
             updateStockInvestment(investment);
         }
         return investments.stream()
